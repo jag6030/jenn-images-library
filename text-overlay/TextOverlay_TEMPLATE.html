@@ -1,0 +1,765 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Text Overlay Template — Jenn Gabel</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: "Inter", sans-serif;
+        background: #d9d9d9;
+        min-height: 100vh;
+      }
+
+      /* ── TOOLBAR ── */
+      #toolbar {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: #1a1a1a;
+        color: #eee;
+        padding: 14px 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      #toolbar h1 {
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+      }
+      #toolbar p {
+        font-size: 11px;
+        color: #999;
+        margin-top: 2px;
+      }
+      #toolbar-right {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      #export-btn {
+        font-family: "Inter", sans-serif;
+        font-weight: 500;
+        font-size: 13px;
+        padding: 10px 20px;
+        border-radius: 0.5rem;
+        background-color: #1f75ff;
+        color: #fff;
+        border: none;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      #export-btn:hover {
+        background-color: #0798fd;
+      }
+      #export-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      #export-status {
+        font-size: 11px;
+        color: #999;
+        min-width: 160px;
+      }
+
+      #hint {
+        background: #f2f0e6;
+        color: #444;
+        font-size: 12px;
+        padding: 10px 24px;
+        text-align: center;
+        border-bottom: 1px solid #e0dcc9;
+      }
+      #hint strong {
+        color: #6a5b16;
+      }
+      #load-status {
+        text-align: center;
+        padding: 40px 24px 0;
+        font-size: 13px;
+        color: #666;
+      }
+      #load-status.error {
+        color: #b23b3b;
+      }
+      #load-status.hidden {
+        display: none;
+      }
+
+      /* ── LIVE CONTROLS ── */
+      #controls {
+        background: #eef1f5;
+        border-bottom: 1px solid #d7dce3;
+        padding: 12px 24px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+        align-items: flex-end;
+        justify-content: center;
+      }
+      .ctrl {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .ctrl label {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+        color: #556;
+      }
+      .ctrl input,
+      .ctrl select {
+        font-family: "Inter", sans-serif;
+        font-size: 13px;
+        padding: 5px 8px;
+        border: 1px solid #b9c1cc;
+        border-radius: 5px;
+        width: 88px;
+        background: #fff;
+      }
+      .ctrl .unit {
+        font-size: 10px;
+        color: #888;
+        margin-left: 2px;
+      }
+
+      /* ── CARD DECK ── */
+      #deck {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 28px;
+        padding: 32px 24px 64px;
+        justify-content: center;
+        align-items: flex-start;
+      }
+      .card-wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+      }
+      .card-label {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: #666;
+      }
+      .card-toggles {
+        display: flex;
+        gap: 10px;
+        font-size: 10px;
+        color: #555;
+        font-weight: 500;
+      }
+      .card-toggles label {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        cursor: pointer;
+      }
+      .card-toggles input {
+        cursor: pointer;
+      }
+      .card-overrides {
+        display: flex;
+        gap: 8px;
+        font-size: 10px;
+        color: #555;
+      }
+      .card-overrides label {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        align-items: center;
+      }
+      .card-overrides input {
+        width: 52px;
+        font-size: 11px;
+        padding: 3px 5px;
+        border: 1px solid #b9c1cc;
+        border-radius: 4px;
+        text-align: center;
+      }
+      .card-overrides input.is-overridden {
+        border-color: #1f75ff;
+        background: #eaf2ff;
+      }
+
+      /* .card is sized in JS per-image (display px), captured at a scale
+         factor that restores the real target resolution on export — same
+         technique the carousel template uses (360x480 on screen -> 1080x1440
+         export via scale:3), just computed per-card here since the 7 sizes
+         are all different shapes. */
+      .card {
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+      }
+
+      .overlay-text {
+        position: absolute;
+        color: #ffffff;
+        text-shadow:
+          0 1px 4px rgba(0, 0, 0, 0.55),
+          0 0 18px rgba(0, 0, 0, 0.35);
+        line-height: 1;
+      }
+      .overlay-text[contenteditable="true"] {
+        outline: none;
+        cursor: text;
+        border-radius: 4px;
+      }
+      .overlay-text[contenteditable="true"]:hover {
+        box-shadow: 0 0 0 2px rgba(31, 117, 255, 0.35);
+      }
+      .overlay-text[contenteditable="true"]:focus {
+        box-shadow: 0 0 0 2px #1f75ff;
+      }
+      .headline-text {
+        font-weight: 500;
+      }
+      .subtext-text {
+        font-weight: 400;
+        margin-top: 0.3em;
+        line-height: 1.5;
+      }
+      .hidden-line {
+        display: none !important;
+      }
+
+      /* position anchors — padding value set per-card in JS (scaled with
+         the card's display size) */
+      .pos-tl {
+        top: 0;
+        left: 0;
+        text-align: left;
+      }
+      .pos-tr {
+        top: 0;
+        right: 0;
+        text-align: right;
+      }
+      .pos-bl {
+        bottom: 0;
+        left: 0;
+        text-align: left;
+      }
+      .pos-br {
+        bottom: 0;
+        right: 0;
+        text-align: right;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="toolbar">
+      <div>
+        <h1>TEXT OVERLAY TEMPLATE — WORKING DEMO</h1>
+        <p>Source Image ID: <span id="header-id"></span></p>
+      </div>
+      <div id="toolbar-right">
+        <span id="export-status"></span>
+        <button id="export-btn">Download All (ZIP)</button>
+      </div>
+    </div>
+
+    <div id="controls">
+      <div class="ctrl">
+        <label for="ctrl-padding">Padding (real px)</label>
+        <input type="number" id="ctrl-padding" value="96" min="0" step="4" />
+      </div>
+      <div class="ctrl">
+        <label for="ctrl-nudge">Extra lift off edge (real px)</label>
+        <input type="number" id="ctrl-nudge" value="0" min="0" step="4" />
+      </div>
+      <div class="ctrl">
+        <label for="ctrl-headline-size">Headline size (real px)</label>
+        <input
+          type="number"
+          id="ctrl-headline-size"
+          value="64"
+          min="8"
+          step="1"
+        />
+      </div>
+      <div class="ctrl">
+        <label for="ctrl-headline-weight">Headline weight</label>
+        <select id="ctrl-headline-weight">
+          <option value="400">400</option>
+          <option value="500" selected>500</option>
+          <option value="700">700</option>
+        </select>
+      </div>
+      <div class="ctrl">
+        <label for="ctrl-subtext-size">Location size (real px)</label>
+        <input
+          type="number"
+          id="ctrl-subtext-size"
+          value="40"
+          min="8"
+          step="1"
+        />
+      </div>
+    </div>
+
+    <div id="hint">
+      Click directly on any text below to edit it. Use the controls above to
+      tune padding/size live — every card updates instantly.
+      <strong>Nothing exports until you click the button</strong> — edit as much
+      as you want first.
+    </div>
+
+    <div id="load-status"></div>
+
+    <div id="deck"></div>
+
+    <script>
+      // ============================================================
+      // CONFIG — sizes this template handles. Square (s1080x1080) is
+      // deliberately excluded — text overlay isn't used on that crop.
+      // ============================================================
+      const SIZE_MAP = {
+        l2160x1080: { w: 2160, h: 1080, group: "landscape" },
+        l1440x1080: { w: 1440, h: 1080, group: "landscape" },
+        l1200x900: { w: 1200, h: 900, group: "landscape" },
+        l1920x1080: { w: 1920, h: 1080, group: "landscape" },
+        v1080x1350: { w: 1080, h: 1350, group: "vertical" },
+        v1080x1440: { w: 1080, h: 1440, group: "vertical" },
+        v1080x1920: { w: 1080, h: 1920, group: "vertical" },
+      };
+
+      // ── LIVE STYLE STATE ──
+      // All values are "real" (export-resolution) px. Same flat number
+      // across landscape + vertical — no more per-orientation split.
+      // Controlled live via the toolbar inputs; defaults reflect the
+      // latest feedback: headline 24px / weight 500, padding bumped up
+      // from the original 48px, plus an extra "lift" applied only on
+      // the anchor's vertical edge (moves text up off a bottom anchor,
+      // or down off a top anchor) so it doesn't hug the corner.
+      const style = {
+        padding: 96,
+        nudge: 0,
+        headlineSize: 64,
+        headlineWeight: 500,
+        subtextSize: 40,
+      };
+
+      const MAX_DISPLAY_WIDTH = 380; // on-screen cap; export always happens at true size
+
+      const deck = document.getElementById("deck");
+      const loadStatus = document.getElementById("load-status");
+      const exportBtn = document.getElementById("export-btn");
+      const statusEl = document.getElementById("export-status");
+
+      // ============================================================
+      // WEB APP — set this after deploying TextOverlay_WebApp.gs (bound to
+      // image-library-tracker) as a web app. Mirrors the carousel template's
+      // WEBAPP_URL fetch pattern. Leave the placeholder in until then — the
+      // page falls back to URL-param / demo mode automatically.
+      // ============================================================
+      const WEBAPP_URL = "PASTE_YOUR_DEPLOYED_WEBAPP_URL_HERE";
+      const webAppConfigured = WEBAPP_URL.startsWith("http");
+
+      // ============================================================
+      // READ PARAMS
+      //
+      // Mode 1 — live sheet fetch (once WEBAPP_URL is set above):
+      //   ?id=si0002
+      //   &headline=GONE+FISHING        (optional — overrides sheet value)
+      //   &subtext=Laurel+Acres+Park%0AMount+Laurel,+NJ   (optional override)
+      //   &position=br                  (optional override, tl|tr|bl|br)
+      //   → fetches all 7 size URLs + headline/subtext/position for that
+      //     Source Image ID directly from image-library-tracker.
+      //
+      // Mode 2 — manual URL-param testing (no web app needed), same as
+      // before: pass one or more size-code params directly —
+      //   &l2160x1080=<cloudinary url>  &l1440x1080=<cloudinary url>  etc.
+      // Any size param left out is simply skipped (no error).
+      //
+      // No params at all → demo fallback.
+      // ============================================================
+      const params = new URLSearchParams(window.location.search);
+      const SOURCE_ID = params.get("id") || "TEST";
+      const HEADLINE = (params.get("headline") || "").replace(/\r/g, "");
+      const SUBTEXT = (params.get("subtext") || "").replace(/\r/g, "");
+      const POSITION = (params.get("position") || "").toLowerCase();
+
+      document.getElementById("header-id").textContent = SOURCE_ID;
+
+      // Demo fallback so the page shows something useful with no params at all.
+      const FALLBACK = {
+        id: "si0004-DEMO",
+        headline: "GONE FISHING",
+        subtext: "Laurel Acres Park\nMount Laurel, NJ",
+        position: "br",
+        sizes: {
+          l1200x900:
+            "https://res.cloudinary.com/al1emyfq/image/upload/t_l1200x900/si0004-landscape-park-mount-laurel-laurel-acres-park-fountain-dock.jpg",
+          v1080x1920:
+            "https://res.cloudinary.com/al1emyfq/image/upload/t_v1080x1920/si0004-vertical-park-mount-laurel-laurel-acres-park-fountain-dock.jpg",
+        },
+      };
+
+      function nl2br(text) {
+        return String(text || "").replace(/\n/g, "<br>");
+      }
+
+      // Applies the current live `style` values (padding/nudge/font sizes)
+      // to one card, scaled from real px down to that card's on-screen
+      // display size. Called on build and again whenever a control changes.
+      function applyStyleToCard(cardEl) {
+        const captureScale = parseFloat(cardEl.dataset.captureScale);
+        const displayScale = 1 / captureScale;
+        const textBlock = cardEl.querySelector(".overlay-text");
+        const headlineEl = cardEl.querySelector(".headline-text");
+        const subtextEl = cardEl.querySelector(".subtext-text");
+        if (!textBlock) return;
+
+        // Per-card overrides win over the global control values. Empty/blank
+        // override inputs (the default) fall back to global — this is what
+        // lets you test "same setting for all 7" vs. "dial in this one crop
+        // differently" without maintaining two separate tools.
+        const overridePadding = cardEl.dataset.overridePadding;
+        const overrideHeadlineSize = cardEl.dataset.overrideHeadlineSize;
+        const effectivePadding =
+          overridePadding !== undefined && overridePadding !== ""
+            ? parseFloat(overridePadding)
+            : style.padding;
+        const effectiveHeadlineSize =
+          overrideHeadlineSize !== undefined && overrideHeadlineSize !== ""
+            ? parseFloat(overrideHeadlineSize)
+            : style.headlineSize;
+
+        const padPx = Math.round(effectivePadding * displayScale);
+        const nudgePx = Math.round(style.nudge * displayScale);
+
+        // Base padding on all sides, then extra "lift" added only on the
+        // vertical edge the text is anchored to (top for tl/tr, bottom for
+        // bl/br) so the block sits noticeably in from that corner.
+        textBlock.style.padding = padPx + "px";
+        const isTop =
+          textBlock.classList.contains("pos-tl") ||
+          textBlock.classList.contains("pos-tr");
+        const isBottom =
+          textBlock.classList.contains("pos-bl") ||
+          textBlock.classList.contains("pos-br");
+        if (isTop) textBlock.style.paddingTop = padPx + nudgePx + "px";
+        if (isBottom) textBlock.style.paddingBottom = padPx + nudgePx + "px";
+
+        if (headlineEl) {
+          headlineEl.style.fontSize =
+            Math.round(effectiveHeadlineSize * displayScale) + "px";
+          headlineEl.style.fontWeight = style.headlineWeight;
+        }
+        if (subtextEl) {
+          subtextEl.style.fontSize =
+            Math.round(style.subtextSize * displayScale) + "px";
+        }
+      }
+
+      function applyStyleToAllCards() {
+        deck.querySelectorAll(".card").forEach(applyStyleToCard);
+      }
+
+      function buildCard(sizeCode, imgUrl, headline, subtext, position) {
+        const spec = SIZE_MAP[sizeCode];
+        if (!spec) return null;
+
+        const displayScale = Math.min(1, MAX_DISPLAY_WIDTH / spec.w);
+        const displayW = Math.round(spec.w * displayScale);
+        const displayH = Math.round(spec.h * displayScale);
+        const captureScale = spec.w / displayW; // restores true resolution on export
+
+        const wrap = document.createElement("div");
+        wrap.className = "card-wrap";
+
+        const label = document.createElement("div");
+        label.className = "card-label";
+        label.textContent = `${sizeCode} (${spec.w}x${spec.h})`;
+        wrap.appendChild(label);
+
+        // Per-card show/hide for headline ("Title") and subtext ("Location") —
+        // independent per size, so any individual card can drop one or both
+        // lines without affecting the rest of the batch.
+        const toggles = document.createElement("div");
+        toggles.className = "card-toggles";
+        toggles.innerHTML = `
+          <label><input type="checkbox" class="toggle-title" checked /> Title</label>
+          <label><input type="checkbox" class="toggle-location" checked /> Location</label>
+        `;
+        wrap.appendChild(toggles);
+
+        // Per-card overrides — blank = inherit the global control value.
+        // This is the "same for all vs. tune this one" comparison: leave
+        // every card blank to test one flat setting everywhere, or fill in
+        // just the crops that need their own number (more/less sky or lawn
+        // behind the text changes how big/padded it can be).
+        const overrides = document.createElement("div");
+        overrides.className = "card-overrides";
+        overrides.innerHTML = `
+          <label>Font<br /><input type="number" class="override-font" placeholder="auto" min="8" step="1" /></label>
+          <label>Pad<br /><input type="number" class="override-pad" placeholder="auto" min="0" step="4" /></label>
+        `;
+        wrap.appendChild(overrides);
+
+        const card = document.createElement("div");
+        card.className = "card";
+        card.dataset.sizeCode = sizeCode;
+        card.dataset.captureScale = captureScale;
+        card.dataset.realW = spec.w;
+        card.dataset.realH = spec.h;
+        card.style.width = displayW + "px";
+        card.style.height = displayH + "px";
+        card.style.backgroundImage = `url("${imgUrl}")`;
+
+        const textBlock = document.createElement("div");
+        textBlock.className = `overlay-text pos-${position}`;
+        textBlock.innerHTML = `
+          <div class="headline-text" contenteditable="true">${nl2br(headline)}</div>
+          <div class="subtext-text" contenteditable="true">${nl2br(subtext)}</div>
+        `;
+        card.appendChild(textBlock);
+        wrap.appendChild(card);
+
+        const headlineEl = textBlock.querySelector(".headline-text");
+        const subtextEl = textBlock.querySelector(".subtext-text");
+        toggles
+          .querySelector(".toggle-title")
+          .addEventListener("change", (e) => {
+            headlineEl.classList.toggle("hidden-line", !e.target.checked);
+          });
+        toggles
+          .querySelector(".toggle-location")
+          .addEventListener("change", (e) => {
+            subtextEl.classList.toggle("hidden-line", !e.target.checked);
+          });
+
+        const fontOverrideInput = overrides.querySelector(".override-font");
+        const padOverrideInput = overrides.querySelector(".override-pad");
+        fontOverrideInput.addEventListener("input", (e) => {
+          card.dataset.overrideHeadlineSize = e.target.value;
+          e.target.classList.toggle("is-overridden", e.target.value !== "");
+          applyStyleToCard(card);
+        });
+        padOverrideInput.addEventListener("input", (e) => {
+          card.dataset.overridePadding = e.target.value;
+          e.target.classList.toggle("is-overridden", e.target.value !== "");
+          applyStyleToCard(card);
+        });
+
+        applyStyleToCard(card);
+        return wrap;
+      }
+
+      // Fetches a row's image URLs + headline/subtext/position from
+      // TextOverlay_WebApp.gs (bound to image-library-tracker), by Source
+      // Image ID. Any ?headline=/&subtext=/&position= in this page's own
+      // URL are forwarded and win over the sheet's stored values — handy
+      // for testing copy/placement without editing the sheet every time.
+      async function fetchFromWebApp(sourceId) {
+        const url = new URL(WEBAPP_URL);
+        url.searchParams.set("id", sourceId);
+        if (HEADLINE) url.searchParams.set("headline", HEADLINE);
+        if (SUBTEXT) url.searchParams.set("subtext", SUBTEXT);
+        if (POSITION) url.searchParams.set("position", POSITION);
+        const res = await fetch(url.toString());
+        if (!res.ok) throw new Error("Web app returned HTTP " + res.status);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        return data;
+      }
+
+      async function renderDeck() {
+        deck.innerHTML = "";
+        const hasAnySizeParam = Object.keys(SIZE_MAP).some((k) =>
+          params.get(k),
+        );
+        const hasIdParam = params.has("id");
+
+        let sizesToRender;
+        let headline, subtext, position, sourceId;
+
+        if (hasIdParam && webAppConfigured) {
+          // ── Mode 1: live fetch from image-library-tracker ──
+          loadStatus.classList.remove("hidden", "error");
+          loadStatus.textContent = `Loading ${SOURCE_ID} from image-library-tracker…`;
+          try {
+            const data = await fetchFromWebApp(SOURCE_ID);
+            sizesToRender = data.sizes || {};
+            headline = data.headline || "";
+            subtext = data.subtext || "";
+            position = (data.position || "br").toLowerCase();
+            sourceId = data.sourceId || SOURCE_ID;
+            document.getElementById("header-id").textContent = sourceId;
+            if (Object.keys(sizesToRender).length === 0) {
+              loadStatus.classList.add("error");
+              loadStatus.textContent = `No image URLs found on row "${sourceId}" in image-library-tracker.`;
+            } else {
+              loadStatus.classList.add("hidden");
+            }
+          } catch (err) {
+            loadStatus.classList.add("error");
+            loadStatus.textContent = `Couldn't load "${SOURCE_ID}" from the sheet (${err.message}). Falling back to demo content.`;
+            sizesToRender = FALLBACK.sizes;
+            headline = FALLBACK.headline;
+            subtext = FALLBACK.subtext;
+            position = FALLBACK.position;
+            sourceId = FALLBACK.id;
+          }
+        } else if (hasAnySizeParam) {
+          // ── Mode 2: manual URL-param testing (no web app needed) ──
+          sizesToRender = {};
+          Object.keys(SIZE_MAP).forEach((code) => {
+            const url = params.get(code);
+            if (url) sizesToRender[code] = url;
+          });
+          headline = HEADLINE;
+          subtext = SUBTEXT;
+          position = POSITION || "br";
+          sourceId = SOURCE_ID;
+          loadStatus.classList.add("hidden");
+        } else {
+          // ── Mode 3: demo fallback ──
+          sizesToRender = FALLBACK.sizes;
+          headline = FALLBACK.headline;
+          subtext = FALLBACK.subtext;
+          position = FALLBACK.position;
+          sourceId = FALLBACK.id;
+          document.getElementById("header-id").textContent = sourceId;
+          loadStatus.classList.remove("hidden", "error");
+          loadStatus.textContent = hasIdParam
+            ? "WEBAPP_URL isn't set yet — showing demo content. Deploy TextOverlay_WebApp.gs and paste its URL into the template."
+            : "No URL params found — showing demo content. Pass ?id=<SourceImageID> (once the web app is deployed), or &<sizeCode>=<url> to test manually.";
+        }
+
+        Object.entries(sizesToRender).forEach(([code, url]) => {
+          const el = buildCard(code, url, headline, subtext, position);
+          if (el) deck.appendChild(el);
+        });
+      }
+
+      renderDeck();
+
+      // ── WIRE UP LIVE CONTROLS ──
+      document.getElementById("ctrl-padding").addEventListener("input", (e) => {
+        style.padding = parseFloat(e.target.value) || 0;
+        applyStyleToAllCards();
+      });
+      document.getElementById("ctrl-nudge").addEventListener("input", (e) => {
+        style.nudge = parseFloat(e.target.value) || 0;
+        applyStyleToAllCards();
+      });
+      document
+        .getElementById("ctrl-headline-size")
+        .addEventListener("input", (e) => {
+          style.headlineSize = parseFloat(e.target.value) || 0;
+          applyStyleToAllCards();
+        });
+      document
+        .getElementById("ctrl-headline-weight")
+        .addEventListener("change", (e) => {
+          style.headlineWeight = e.target.value;
+          applyStyleToAllCards();
+        });
+      document
+        .getElementById("ctrl-subtext-size")
+        .addEventListener("input", (e) => {
+          style.subtextSize = parseFloat(e.target.value) || 0;
+          applyStyleToAllCards();
+        });
+
+      // ============================================================
+      // EXPORT — one PNG per card, at true resolution, zipped together.
+      // Filenames: {SourceImageID}-{sizeCode}.jpg — e.g. si0004-l1200x900.jpg
+      // so the matching script can split on the last hyphen-group to get
+      // the size code and match it to the right "<size> Overlay URL" column.
+      // ============================================================
+      exportBtn.addEventListener("click", async () => {
+        exportBtn.disabled = true;
+        const zip = new JSZip();
+        const cardEls = Array.from(deck.querySelectorAll(".card"));
+        const sourceId =
+          document.getElementById("header-id").textContent || "image";
+
+        for (let i = 0; i < cardEls.length; i++) {
+          const cardEl = cardEls[i];
+          const sizeCode = cardEl.dataset.sizeCode;
+          statusEl.textContent = `Rendering ${sizeCode} (${i + 1} of ${cardEls.length})...`;
+
+          const captureScale = parseFloat(cardEl.dataset.captureScale);
+          const originalShadow = cardEl.style.boxShadow;
+          cardEl.style.boxShadow = "none";
+
+          const canvas = await html2canvas(cardEl, {
+            scale: captureScale,
+            useCORS: true,
+            backgroundColor: null,
+            scrollX: 0,
+            scrollY: 0,
+          });
+          cardEl.style.boxShadow = originalShadow;
+
+          // Same trim-and-rescale fix as the carousel template — discards
+          // the outer few px where html2canvas edge artifacts show up, then
+          // stretches back to full size.
+          const inset = 3;
+          const trimmed = document.createElement("canvas");
+          trimmed.width = canvas.width;
+          trimmed.height = canvas.height;
+          const tctx = trimmed.getContext("2d");
+          tctx.drawImage(
+            canvas,
+            inset,
+            inset,
+            canvas.width - inset * 2,
+            canvas.height - inset * 2,
+            0,
+            0,
+            canvas.width,
+            canvas.height,
+          );
+
+          const blob = await new Promise((resolve) =>
+            trimmed.toBlob(resolve, "image/jpeg", 0.92),
+          );
+          zip.file(`${sourceId}-${sizeCode}.jpg`, blob);
+        }
+
+        statusEl.textContent = "Zipping files...";
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${sourceId}-text-overlay-cards.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        statusEl.textContent = `Done — ${cardEls.length} JPGs downloaded.`;
+        exportBtn.disabled = false;
+      });
+    </script>
+  </body>
+</html>
