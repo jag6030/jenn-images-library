@@ -379,7 +379,7 @@
       // page falls back to URL-param / demo mode automatically.
       // ============================================================
       const WEBAPP_URL =
-        "https://script.google.com/macros/s/AKfycbw0BqNCGLWvjaK8UgQEZhoObqJ2wn5_B_v4s3a6bmC1MZSl40gLcxqyZiy9dVHmyomQSg/exec";
+        "https://script.google.com/macros/s/AKfycbzAhkquG20AFmO_80aJbUVfs8omoRZDNpyBa9F8-2sMnJRpsXBwxPZfBZjb40TH0dp4Lg/exec";
       const webAppConfigured = WEBAPP_URL.startsWith("http");
 
       // ============================================================
@@ -584,7 +584,13 @@
         if (HEADLINE) url.searchParams.set("headline", HEADLINE);
         if (SUBTEXT) url.searchParams.set("subtext", SUBTEXT);
         if (POSITION) url.searchParams.set("position", POSITION);
-        const res = await fetch(url.toString());
+        // Cache-buster: Apps Script webapp responses don't send explicit
+        // no-cache headers, so browsers can silently reuse a stale response
+        // for the same URL (seen firsthand — sheet/script updates not
+        // showing up even after a hard refresh). A unique param per request
+        // guarantees a fresh fetch every time.
+        url.searchParams.set("_", Date.now());
+        const res = await fetch(url.toString(), { cache: "no-store" });
         if (!res.ok) throw new Error("Web app returned HTTP " + res.status);
         const data = await res.json();
         if (data.error) throw new Error(data.error);
