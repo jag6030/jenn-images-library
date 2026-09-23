@@ -443,6 +443,7 @@
         // differently" without maintaining two separate tools.
         const overridePadding = cardEl.dataset.overridePadding;
         const overrideHeadlineSize = cardEl.dataset.overrideHeadlineSize;
+        const overrideSubtextSize = cardEl.dataset.overrideSubtextSize;
         const effectivePadding =
           overridePadding !== undefined && overridePadding !== ""
             ? parseFloat(overridePadding)
@@ -451,6 +452,10 @@
           overrideHeadlineSize !== undefined && overrideHeadlineSize !== ""
             ? parseFloat(overrideHeadlineSize)
             : style.headlineSize;
+        const effectiveSubtextSize =
+          overrideSubtextSize !== undefined && overrideSubtextSize !== ""
+            ? parseFloat(overrideSubtextSize)
+            : style.subtextSize;
 
         const padPx = Math.round(effectivePadding * displayScale);
         const nudgePx = Math.round(style.nudge * displayScale);
@@ -475,7 +480,7 @@
         }
         if (subtextEl) {
           subtextEl.style.fontSize =
-            Math.round(style.subtextSize * displayScale) + "px";
+            Math.round(effectiveSubtextSize * displayScale) + "px";
         }
       }
 
@@ -520,6 +525,7 @@
         overrides.className = "card-overrides";
         overrides.innerHTML = `
           <label>Font<br /><input type="number" class="override-font" placeholder="auto" min="8" step="1" /></label>
+          <label>Loc<br /><input type="number" class="override-subtext" placeholder="auto" min="8" step="1" /></label>
           <label>Pad<br /><input type="number" class="override-pad" placeholder="auto" min="0" step="4" /></label>
         `;
         wrap.appendChild(overrides);
@@ -557,9 +563,16 @@
           });
 
         const fontOverrideInput = overrides.querySelector(".override-font");
+        const subtextOverrideInput =
+          overrides.querySelector(".override-subtext");
         const padOverrideInput = overrides.querySelector(".override-pad");
         fontOverrideInput.addEventListener("input", (e) => {
           card.dataset.overrideHeadlineSize = e.target.value;
+          e.target.classList.toggle("is-overridden", e.target.value !== "");
+          applyStyleToCard(card);
+        });
+        subtextOverrideInput.addEventListener("input", (e) => {
+          card.dataset.overrideSubtextSize = e.target.value;
           e.target.classList.toggle("is-overridden", e.target.value !== "");
           applyStyleToCard(card);
         });
